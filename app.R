@@ -1,6 +1,13 @@
 #Version in develop
 library(shiny)
 
+###ToDo:
+
+# Revisar el código para optimizar los textos y la salida 
+# de las tablas en las que haya cruce de datos, que telita 
+# la de mierda que tiene que haber ahí de código sin optimizar
+
+
 #Data import, refactoring the default "factor" type
 
 #Cities:
@@ -202,7 +209,7 @@ server <- function(input, output) {
   
   ####### Output: result: Table or Plot ####### 
   
-  #Result: Country's info, only with "cities by country"
+  #Result: Country's info - Lo que se cambie aqui cambiar en el de abajo que se usa en los gráficos:
   output$relatedDataL <- renderText({
     
     chosenList <- input$despFirstChoiceL
@@ -246,71 +253,49 @@ server <- function(input, output) {
       ))
 
       
-      ####REVISAR
+      #Optimizao
     }else if(chosenList == "Countries by language"){
       
-      #Countries per language:
-      CountriesLangOff <- subset(idiomaCSV, Language == secChoice & IsOfficial == TRUE)
+      #All the languages and CodeCountry from the choice
+      languages <- subset(idiomaCSV, Language == secChoice)
       
-      #List of country codes, where its official
-      CountriesLangOff <- as.vector(CountriesLangOff$CountryCode)
+      #Codes for the countries with the language
+      codesCountr <- as.vector(languages[,1])
       
-      #List of countrys, from the codes
-      CountriesLangOff <- subset(countryCSV, Code %in% CountriesLangOff)
+      #Countries where that language is spoken:
+      countriesByLang <- subset(countryCSV, Code %in% codesCountr)
       
-      #List of names of the countries where it's official
-      CountriesLangOff <- as.vector(CountriesLangOff$Name)
-      #####################-------------------------------------------------------------------
+      #Rename to merge
+      colnames(languages)[1] <- "Code"
+      finalList <- merge(languages, countriesByLang, by = "Code")
       
+      finalList$new <- ((finalList$Percentage)/100)*finalList$Population
       
-      #Pendiente de arreglar porque se puede hacer más corto, ver script Lineaw 70
+      totalSpeakers <- sum(finalList$new)
       
-      # language =input$despSecondChoice
-      # 
-      # countriesByLanguage <- as.vector(subset(idiomaCSV, Language == language))
-      # codesCBL <- as.vector(countriesByLanguage[,1])
-      # 
-      # finalList <- subset(countryCSV, Code %in% codesCBL)
-      # 
-      # finalList <- finalList[,-c(6,8,10,12,13,15)]
-      # capitalsCodes <- as.integer(as.vector(finalList$Capital))
-      # capitalNames <- subset(cityCSV, ID %in% capitalsCodes)
-      # 
-      # # #Order by code before bind all:
-      # finalList <- finalList[order(finalList$Code),]
-      # capitalNames <- capitalNames[order(capitalNames$CountryCode),]
-      # countriesByLanguage <- countriesByLanguage[order(countriesByLanguage$CountryCode),]
-      # 
-      # finalList <- cbind.data.frame(finalList, capitalNames$Name,  countriesByLanguage$Percentage)
-      # 
-      # finalList$Capital <- NULL
-      # finalList$Code <- NULL
-      # 
-      # names(finalList)[8] <- "Capital"
-      # names(finalList)[9] <- "Percentage"
+      #Countries where is official language:
+      officialLanguage <- subset(finalList, IsOfficial == TRUE)
       
+      officialLanguage <- as.vector(officialLanguage$Name)
       
-      ##############---------------------------------------------------------------------------------------
-      
-      
-      
-      
-      # if(length(CountriesLangOff == 0)){
-      #   HTML(paste("<font size=3>","<b>","About", secChoice,"</b>","</font>", ": ",
-      #               "not an official language: ", "|"
-      #   )) 
-      # }else{
-      #    HTML(paste("<font size=3>","<b>","About", secChoice,"</b>","</font>", ": ",
-      #            "<b>", "Official in: ", "</b>", paste(CountriesLangOff, sep ="", collapse = ", "), "|"
-      #            ))
-      #   
-      # }
-      
-      HTML(paste("<font size=3>","<b>","About", secChoice,"</b>","</font>", ": ",
-                            "<b>", "Official in: ", "</b>", paste(CountriesLangOff, sep ="", collapse = ", "), "|"
-                            ))
-     
-      
+      if(length(officialLanguage) ==0){
+        HTML(
+          paste("<font size=3>","<b>","About", secChoice,"</b>","</font>", ": ",
+                "<b>", "Not an official language", "</b>", "|",
+                "<b>", "Number of speakers: " , "</b>", totalSpeakers 
+                
+          )
+        )
+      }else{
+        HTML(
+          paste("<font size=3>","<b>","About", secChoice,"</b>","</font>", ": ",
+                "<b>", "Official in: ", "</b>", paste(officialLanguage, sep ="", collapse = ", "), "|",
+                "<b>", "Number of speakers: " , "</b>", totalSpeakers 
+                
+          )
+        )
+      }
+
     }
  
   })
@@ -318,7 +303,91 @@ server <- function(input, output) {
   #Result: Country's info, only with "cities by country"
     output$relatedDataP <- renderText({
     
-    paste("datos del pais:" , input$despSecondChoice)
+      chosenList <- input$despFirstChoiceL
+      secChoice <- input$despSecondChoice
+      
+      if(chosenList == "Cities by countries"){
+        
+        chosenCountry <- subset(countryCSV, Name == secChoice)
+        codCapital <- chosenCountry$Capital
+        capital <- subset(cityCSV, ID == codCapital)
+        
+        
+        HTML(paste("<font size=3>","<b>","About", secChoice,"</b>","</font>", ": ",
+                   "<b>","Continent: ","</b>", chosenCountry$Continent,"|",
+                   "<b>", "Region: ", "</b>", chosenCountry$Region,"|",
+                   "<b>", "Country code: ","</b>"  ,chosenCountry$Code,"|",
+                   "<b>", "Capital: ", "</b>", capital$Name,"|",
+                   "<b>", "Surface: ", "</b>", chosenCountry$Surface,"|",
+                   "<b>", "Population: ", "</b>", chosenCountry$Population,"|",
+                   "<b>", "Life expentancy: ", "</b>", chosenCountry$LifeExpentancy
+        )
+        )
+        
+      }else if(chosenList == "Countries by regions"){
+        
+        #Countries per region:
+        chosenRegion <- subset(countryCSV, Region == secChoice)
+        
+        continent <- unique(chosenRegion$Continent)
+        population <- sum(chosenRegion$Population)
+        surface <- sum(chosenRegion$SurfaceArea)
+        averLifeExpentancy <- mean(chosenRegion$LifeExpentancy,na.rm = TRUE)
+        averLifeExpentancy <- round(averLifeExpentancy, digits = 2)
+        
+        
+        HTML(paste("<font size=3>","<b>","About", secChoice,"</b>","</font>", ": ",
+                   "<b>","Continent: ","</b>", continent,"|",
+                   "<b>","Population: ","</b>", population,"|",
+                   "<b>","Surface: ","</b>", surface,"|",
+                   "<b>","Average life expentancy: ","</b>", averLifeExpentancy
+        ))
+        
+        
+        #Optimizao
+      }else if(chosenList == "Countries by language"){
+        
+        #All the languages and CodeCountry from the choice
+        languages <- subset(idiomaCSV, Language == secChoice)
+        
+        #Codes for the countries with the language
+        codesCountr <- as.vector(languages[,1])
+        
+        #Countries where that language is spoken:
+        countriesByLang <- subset(countryCSV, Code %in% codesCountr)
+        
+        #Rename to merge
+        colnames(languages)[1] <- "Code"
+        finalList <- merge(languages, countriesByLang, by = "Code")
+        
+        finalList$new <- ((finalList$Percentage)/100)*finalList$Population
+        
+        totalSpeakers <- sum(finalList$new)
+        
+        #Countries where is official language:
+        officialLanguage <- subset(finalList, IsOfficial == TRUE)
+        
+        officialLanguage <- as.vector(officialLanguage$Name)
+        
+        if(length(officialLanguage) ==0){
+          HTML(
+            paste("<font size=3>","<b>","About", secChoice,"</b>","</font>", ": ",
+                  "<b>", "Not an official language", "</b>", "|",
+                  "<b>", "Number of speakers: " , "</b>", totalSpeakers 
+                  
+            )
+          )
+        }else{
+          HTML(
+            paste("<font size=3>","<b>","About", secChoice,"</b>","</font>", ": ",
+                  "<b>", "Official in: ", "</b>", paste(officialLanguage, sep ="", collapse = ", "), "|",
+                  "<b>", "Number of speakers: " , "</b>", totalSpeakers 
+                  
+            )
+          )
+        }
+        
+      }
     
   })
   
