@@ -24,10 +24,8 @@ Once downloaded you can use the left-side menu to consult the list and chars of 
 ##Versioning
 A new version is comming, and will include the next features:
 
-* Erase non-relevant info on the lists
-* Make lists apear as Dataframes, allowing the user to filter and sort the info
-* Add another relevant info on the list, like country's capital as a name and number
 * Add relevant data about the languages per country
+* Add relevant data about the region, country or language, depending on the option chosed
 
 ##Authors
 

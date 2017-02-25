@@ -1,9 +1,11 @@
-
+#Version in develop
 library(shiny)
 
 #Cities:
 cityCSV <- read.csv2("city.csv", header = FALSE, encoding = "UTF-8", sep = ",")
 colnames(cityCSV) <- c("ID", "Name", "CountryCode", "Disctrict", "Population")
+cityCSV$Name <- as.character(cityCSV$Name)
+cityCSV$Disctrict <- as.character(cityCSV$Disctrict)
 
 #Countries:
 countryCSV <- read.csv2("country.csv", header = FALSE, encoding = "UTF-8", sep = ",")
@@ -15,33 +17,35 @@ colnames(idiomaCSV) <- c("CountryCode", "Language", "IsOfficial", "Percentage")
 
 # Define UI:
 ui <-  pageWithSidebar(
-         headerPanel("World data consult: "), 
-         sidebarPanel(
-           selectInput("despFirstChoiceL", "Chose your data", choices = c("Cities by countries", "Countries by regions", "Countries by language")),
-           uiOutput("secondChoiceL"),
-           br(),
-           h4("Filter"),
-           uiOutput("slidAnioCompL"),
-           uiOutput("slidSurfaceL"),
-           uiOutput("slidGNPL")
-
-         ),
-         mainPanel(
-           tabsetPanel(
-             tabPanel("List:",
-                      tableOutput("listResult")),
-             tabPanel("Charts:",
-                      plotOutput("plotResult"))
-           )
-         
-       
-      )
+  headerPanel("World data consult: "), 
+  sidebarPanel(
+    selectInput("despFirstChoiceL", "Chose your data", choices = c("Cities by countries", "Countries by regions", "Countries by language")),
+    uiOutput("secondChoiceL"),
+    br(),
+    h4("Filter"),
+    uiOutput("slidAnioCompL"),
+    uiOutput("slidSurfaceL"),
+    uiOutput("slidGNPL")
+    
+  ),
+  mainPanel(
+    tabsetPanel(
+      tabPanel("List:",
+               textOutput("relatedDataL"),
+               dataTableOutput("listResult")),
+      tabPanel("Charts:",
+               textOutput("relatedDataP"),
+               plotOutput("plotResult"))
+    )
+    
+    
+  )
 )
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
   
-
+  
   ####### Input selections and render: LIST    #######
   
   #Second filter
@@ -50,15 +54,15 @@ server <- function(input, output) {
     chosenList <- input$despFirstChoiceL
     
     if(chosenList == "Cities by countries"){
-
+      
       data <- countryCSV$Name
       
-      selectInput("despSecondChoice", "Countries", choices = sort(data))
+      selectInput("despSecondChoice", "Cuontries", choices = sort(data))
       
     }else if(chosenList == "Countries by regions"){
       
       data <- unique(countryCSV$Region)
-
+      
       selectInput("despSecondChoice", "Regions", choices = sort(data))
       
     }else if(chosenList == "Countries by language"){
@@ -70,7 +74,7 @@ server <- function(input, output) {
         if(length(subset(idiomaCSV, Language == idioma)[,1])>=2){
           
           data <-c(data, idioma)
-
+          
         }
         
       }
@@ -79,12 +83,12 @@ server <- function(input, output) {
       
     }
     
-
+    
   })
   
   #Population slider: DONE
   output$slidAnioCompL <- renderUI({
-
+    
     sec <- input$despSecondChoice
     chosenList <- input$despFirstChoiceL
     
@@ -98,16 +102,16 @@ server <- function(input, output) {
       ciudades <- subset(cityCSV, CountryCode == codigoPais)
       
       population <- ciudades$Population
-
+      
     }else if(chosenList == "Countries by regions"){
-
+      
       paisesXregion <- subset(countryCSV, Region == sec)
       
       population <- paisesXregion$Population
       
     }else if(chosenList == "Countries by language"){
       
-
+      
       codPaisesXidioma <- as.vector(subset(idiomaCSV, Language == sec))
       codPaisesXidioma <- as.vector(codPaisesXidioma[,1])
       
@@ -119,7 +123,7 @@ server <- function(input, output) {
     minimum <- min(population)
     
     sliderInput("slidAnio", label = "Population", min = minimum, max = maximum, value = c(minimum,maximum))
-
+    
   })
   
   #Suerface slider: DONE
@@ -128,7 +132,7 @@ server <- function(input, output) {
     
     sec <- input$despSecondChoice
     chosenList <- input$despFirstChoiceL
-
+    
     if(chosenList == "Countries by regions"){
       
       paisesXregion <- subset(countryCSV, Region == sec)
@@ -195,12 +199,22 @@ server <- function(input, output) {
     }
     
   })
-
-
+  
+  
   ####### Output: result: Table or Plot ####### 
-
+  
+  #Result: Country's info, only with "cities by country"
+  output$relatedDataL <- renderText({
+    paste("datos del pais:" , input$despSecondChoice)
+  })
+  
+  #Result: Country's info, only with "cities by country"
+  output$relatedDataP <- renderText({
+    paste("datos del pais:" , input$despSecondChoice)
+  })
+  
   #Result (List): the result, whit the filters, as a list
-  output$listResult <- renderTable({
+  output$listResult <- renderDataTable({
     
     chosenList <- input$despFirstChoiceL
     
@@ -214,24 +228,62 @@ server <- function(input, output) {
       
       finalList <- subset(cityCSV, CountryCode == codigoPais)
       
+      #Erase ID and country code, not relevant:
+      finalList <- finalList[,-c(1,3)]
+      
     }else if(chosenList == "Countries by regions"){
       
       region <- input$despSecondChoice
       
       finalList <- as.vector(subset(countryCSV, Region == region))
+      #Erase continent, region, 
+      finalList <- finalList[,-c(3,4,6,10,15)]
+      
+      #Add capital as name, not code:
+      
+      codigoCapitales <- as.vector(finalList$Capital)
+      codigoCapitales <- as.integer(codigoCapitales)
+      capitalName <- subset(cityCSV, ID %in% codigoCapitales)
+      
+      finalList <- finalList[order(finalList$Code),]
+      capitalName <- capitalName[order(capitalName$CountryCode),]
+      finalList <- cbind(finalList, capitalName$Name)
+      finalList$Capital <- NULL
+      finalList$Code <- NULL
+      names(finalList)[9] <- "Capital"
       
       
     }else if(chosenList == "Countries by language"){
       
-      idioma =input$despSecondChoice
+      language =input$despSecondChoice
       
-      codPaisesXidioma <- as.vector(subset(idiomaCSV, Language == idioma))
-      codPaisesXidioma <- as.vector(codPaisesXidioma[,1])
+      countriesByLanguage <- as.vector(subset(idiomaCSV, Language == language))
+      codesCBL <- as.vector(countriesByLanguage[,1])
       
-      finalList <- subset(countryCSV, Code %in% codPaisesXidioma)
+      finalList <- subset(countryCSV, Code %in% codesCBL)
+      
+      finalList <- finalList[,-c(6,8,10,12,13,15)]
+      capitalsCodes <- as.integer(as.vector(finalList$Capital))
+      capitalNames <- subset(cityCSV, ID %in% capitalsCodes)
+      
+      # #Order by code before bind all:
+      finalList <- finalList[order(finalList$Code),]
+      capitalNames <- capitalNames[order(capitalNames$CountryCode),]
+      countriesByLanguage <- countriesByLanguage[order(countriesByLanguage$CountryCode),]
+
+      finalList <- cbind(finalList, capitalNames$Name,  countriesByLanguage$Percentage)
+      
+      finalList$Capital <- NULL
+      finalList$Code <- NULL
+      
+      names(finalList)[8] <- "Capital"
+      names(finalList)[9] <- "Percentage"
+      
+      
+      
       
     }
-
+    
     #Population filter:
     finalList <- subset(finalList, Population >= input$slidAnio[1] & Population <= input$slidAnio[2])
     
@@ -251,7 +303,7 @@ server <- function(input, output) {
     
     finalList
     
-  })
+  }, options = list(pageLength = 10))
   
   #Result (Plot): the result, with the filters, as a chart
   output$plotResult <- renderPlot({
